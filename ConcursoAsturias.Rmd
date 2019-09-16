@@ -1,0 +1,164 @@
+---
+title: "concursoAsturias19"
+author: "FVB"
+date: "12 de septiembre de 2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Asturias R constes
+
+## paso 1. lectura de datos
+
+Lo primero es la lectura de los datos que los dan en formato RData.
+
+```{r}
+granja <- get(load('data/Granja.RData'))
+carrizal<- get(load('data/Carrizal.RData'))
+canizal<- get(load('data/Canizal.RData'))
+granja$estacion<-"granja"
+estaciones<-rbind(granja[1,],carrizal[1,],canizal[1,])
+
+estaciones<-estaciones[,c("estacion","latitud","longitud")]
+
+#length(granja)
+head(carrizal)
+head(granja)
+
+granja$TIMESTAMP[1]
+tail(granja$TIMESTAMP)
+
+#ts.plot(granja$Lluvia_Tot)
+#ts.plot(x=granja$TIMESTAMP,y=granja$Rad_acum_Tot)
+
+```
+
+
+## mapa
+
+```{r mapa}
+library(leaflet)
+# convertimos a numericos
+estaciones$latitud<-as.numeric(estaciones$latitud)
+estaciones$longitud<-as.numeric(estaciones$longitud)
+
+m <- leaflet(estaciones) %>% addTiles() # añade el mapa por defecto de OpenStreetMap
+    # añadimos Una capa de marcas con los datos 
+    # la capa tendrá una popup con el texto marcado
+    m %>% addMarkers(lng=estaciones$longitud,
+                     lat=estaciones$latitud,
+                     label = ~estacion,
+                     labelOptions = labelOptions(noHide = T))  
+    
+    
+    
+new <- c("red", "green","blue")
+icons <- awesomeIcons(
+  icon = 'ios-close',
+  iconColor = 'black',
+  library = 'ion',
+  markerColor = new
+)    
+m1 <-leaflet(estaciones) %>% addProviderTiles("CartoDB.Positron") 
+
+m1 %>% addAwesomeMarkers(lng= ~longitud, lat= ~latitud, icon=icons,
+                    popup= ~estacion,
+                    label= ~estacion,
+                    labelOptions = labelOptions(noHide = T))  
+
+#install.packages("leafpop")
+library(leafpop)
+m1 %>% addAwesomeMarkers(lng= ~longitud, lat= ~latitud, icon=icons,
+                    #popup= ~estacion,
+                    #label= ~estacion,
+                    popup = popupTable(estaciones))
+
+
+  addMinicharts(
+    lng= ~longitud, lat= ~latitud,
+    chartdata = prod2016$load,
+    showLabels = TRUE,
+    width = 45
+  )
+```
+
+### Variables
+El significado de cada variable es el siguiente:
+
+ * Timestamp: marca de fecha y hora.
+ * Lluvia total: cantidad de lluvia acumulada en ese intervalo (10 minutos), expresada en milímetros (mm).
+ * Velocidad máxima del viento: velocidad máxima del viento en un instante (también llamada racha máxima), en ese intervalo de tiempo. Se expresa en metros/segundo (m/s).
+ * Velocidad media del viento: velocidad media en el intervalo dado (10 minutos). Se expresa en metros/segundos (m/s).
+ * Dirección media del viento: en el intervalo de diez minutos, el valor medio de la dirección del viento, expresado en grados (sentido de las agujas del reloj, desde el norte).
+ * Desviación estándar de la dirección del viento: desviación estándar de la variable anterior, expresada en grados (sentido de las agujas del reloj, desde el norte).
+ * Temperatura del aire: media de la temperatura en el periodo de tiempo medido (10 minutos), expresada en grados centígrados (⁰C).
+ * Promedio de la presión de vapor: promedio de la humedad que hay en el aire en ese periodo de tiempo (10 minutos), pero expresada en términos de presión vapor. Esta es la cantidad de presión con la que contribuye el vapor de agua a la presión atmosférica. Se expresa en kilopascales (kPa).
+ * Promedio del déficit de la presión de vapor: promedio, en ese periodo de tiempo de 10 minutos, de la diferencia entre la presión de vapor saturante y la real, es decir, cuánto nos falta con la presión de vapor que tenemos para llegar a la saturación. En otras palabras, cuán seco está el aire. Así, cuando este valor es muy alto, se separa / aleja mucho de la saturación (hay poco vapor en el aire). Esto se traduce en que la atmósfera está demandando agua, lo cual hace que la fotosíntesis de las plantas se resienta. Estas cierran los estomas para protegerse y no perder agua, y eso va en su contra. Se expresa en kilopascales (kPa).
+ * Promedio de la humedad relativa: esta es otra forma de expresar la humedad, de manera relativa. Es el promedio, en ese periodo de tiempo de 10 minutos, del porcentaje de humedad que tiene el aire, respecto a la saturación. Es una, producto de dividir la humedad que tiene el aire entre la humedad de saturación a esa misma temperatura, y multiplicándolo por cien. Se expresa en porcentaje (%).
+ * Promedio de radiación solar: promedio, en ese periodo de tiempo de 10 minutos, de la cantidad de energía que se recibe del Sol o, en otras palabras, de la energía incidente que llega a la superficie de la Tierra. Se expresa en vatios por metro cuadrado (W/m2).
+ * Radiación acumulada total: acumulado de la radiación solar en el intervalo de 10 minutos. Se expresa en megajulios por metro cuadrado (MJ/m2).
+ *  Latitude&longitude: Latitud y longitud de la estación.
+
+## agragados anuales
+
+```{r}
+#creamos un campo año
+library(lubridate)
+granja$year<-year(granja$date)
+
+aggregate(Lluvia_Tot ~ year, granja, sum)
+```
+
+
+## Visualización de los datos
+Usaremos la librería openair que es muy buena para ver datos meteorilógicos.
+Un primer vistazo con summaryPlot
+```{r}
+library(openair)
+library(dplyr)
+
+# cambio el nombre de la fecha para usar el de por defecto en openair
+names(granja)[1]<-"date"
+summaryPlot(select(granja, c(date,Vel_Viento_Max, Lluvia_Tot,Temp_Aire_Avg)))
+```
+
+### Rosa de los vientos
+Para eso debemos cambiar los nombres de las variables de viento
+
+
+```{r}
+str(granja)
+vgranja<-select(granja,c(date,VV_media,DV_media))
+vgranja<-rename(vgranja, date = date, ws = VV_media, wd = DV_media)
+head(vgranja)
+windRose(vgranja, key.footer = "knots") # default is m/s
+
+
+windRose(vgranja, type = "season", key.footer = "knots")
+```
+
+```{r}
+percentileRose(vgranja, pollutant = "ws", smooth  =F)
+```
+
+
+### Series temporales
+```{r}
+str(granja)
+timePlot(granja, pollutant = c("Lluvia_Tot","Temp_Aire_Avg"),y.relation="free")#, , "Hum_Rel_Avg","Rad_acum_Tot"))
+```
+
+```{r}
+
+
+
+calendarPlot(selectByDate(granja, start="01/01/2017", end="31/12/2017"), pollutant = "Lluvia_Tot")
+granja17<-selectByDate(granja, start="01/01/2017", end="31/12/2017")
+calendarPlot(granja17, pollutant = 'Temp_Aire_Avg')#, annotate = 'DV_media')
+```
+
