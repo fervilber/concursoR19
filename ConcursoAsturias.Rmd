@@ -22,6 +22,9 @@ granja <- get(load('data/Granja.RData'))
 carrizal<- get(load('data/Carrizal.RData'))
 canizal<- get(load('data/Canizal.RData'))
 granja$estacion<-"granja"
+# junto todo
+todo<-rbind(granja,carrizal,canizal)
+#solo estaciones
 estaciones<-rbind(granja[1,],carrizal[1,],canizal[1,])
 
 estaciones<-estaciones[,c("estacion","latitud","longitud")]
@@ -56,8 +59,10 @@ m <- leaflet(estaciones) %>% addTiles() # añade el mapa por defecto de OpenStre
                      labelOptions = labelOptions(noHide = T))  
     
     
-    
-new <- c("red", "green","blue")
+# otra opcion de dibujo    
+#install.packages("leafpop")
+library(leafpop)
+    new <- c("red", "green","blue")
 icons <- awesomeIcons(
   icon = 'ios-close',
   iconColor = 'black',
@@ -71,14 +76,13 @@ m1 %>% addAwesomeMarkers(lng= ~longitud, lat= ~latitud, icon=icons,
                     label= ~estacion,
                     labelOptions = labelOptions(noHide = T))  
 
-#install.packages("leafpop")
-library(leafpop)
+
 m1 %>% addAwesomeMarkers(lng= ~longitud, lat= ~latitud, icon=icons,
                     #popup= ~estacion,
                     #label= ~estacion,
                     popup = popupTable(estaciones))
 
-
+# no probado desde aquí
   addMinicharts(
     lng= ~longitud, lat= ~latitud,
     chartdata = prod2016$load,
@@ -109,9 +113,35 @@ El significado de cada variable es el siguiente:
 ```{r}
 #creamos un campo año
 library(lubridate)
+library(dplyr)
+granja<-rename(granja, date = TIMESTAMP, ws = VV_media, wd = DV_media)
 granja$year<-year(granja$date)
 
+head(granja)
+str(granja)
 aggregate(Lluvia_Tot ~ year, granja, sum)
+
+#sobre todo
+todo<-rename(todo, date = TIMESTAMP, ws = VV_media, wd = DV_media,vmax= Vel_Viento_Max)
+todo$year<-year(todo$date)
+llanual<-aggregate(Lluvia_Tot ~ year+estacion, todo, sum)
+
+library(ggplot2)
+ggplot(llanual, aes(x=year, fill=estacion)) +
+  geom_bar(mapping = aes(x = cut,  fill=cut))
+
+ggplot(llanual) +
+  geom_bar(mapping = aes(x=year,y=Lluvia_Tot, fill=estacion),stat="identity")
+
+ggplot(llanual) +
+  geom_bar(mapping = aes(x=year,y=Lluvia_Tot, fill=estacion),stat="identity", position=position_dodge())
+
+ggplot(llanual,aes(x=year,y=Lluvia_Tot, fill=estacion)) +
+  geom_bar(stat="identity", position=position_dodge())+
+geom_text(aes(label=Lluvia_Tot), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal()
 ```
 
 
@@ -119,11 +149,14 @@ aggregate(Lluvia_Tot ~ year, granja, sum)
 Usaremos la librería openair que es muy buena para ver datos meteorilógicos.
 Un primer vistazo con summaryPlot
 ```{r}
+install.packages("openair")
 library(openair)
-library(dplyr)
+
 
 # cambio el nombre de la fecha para usar el de por defecto en openair
 names(granja)[1]<-"date"
+granja$Lluvia_Tot<-granja$Lluvia_Tot*10
+max(granja$Lluvia_Tot)
 summaryPlot(select(granja, c(date,Vel_Viento_Max, Lluvia_Tot,Temp_Aire_Avg)))
 ```
 
