@@ -155,7 +155,6 @@ library(openair)
 
 # cambio el nombre de la fecha para usar el de por defecto en openair
 names(granja)[1]<-"date"
-granja$Lluvia_Tot<-granja$Lluvia_Tot*10
 max(granja$Lluvia_Tot)
 summaryPlot(select(granja, c(date,Vel_Viento_Max, Lluvia_Tot,Temp_Aire_Avg)))
 ```
@@ -183,7 +182,19 @@ percentileRose(vgranja, pollutant = "ws", smooth  =F)
 ### Series temporales
 ```{r}
 str(granja)
+table(is.na(granja$Lluvia_Tot))
+
+sum(!complete.cases(granja))
+
 timePlot(granja, pollutant = c("Lluvia_Tot","Temp_Aire_Avg"),y.relation="free")#, , "Hum_Rel_Avg","Rad_acum_Tot"))
+
+a<-granja %>%
+  mutate(date = as.Date(floor_date(date)))%>%
+  group_by(date) %>%
+  summarize(mean_X1 = mean(Lluvia_Tot))
+
+  timePlot(a,pollutant = mean_X1)
+ts.plot(a$mean_X1)
 ```
 
 ```{r}
@@ -193,5 +204,27 @@ timePlot(granja, pollutant = c("Lluvia_Tot","Temp_Aire_Avg"),y.relation="free")#
 calendarPlot(selectByDate(granja, start="01/01/2017", end="31/12/2017"), pollutant = "Lluvia_Tot")
 granja17<-selectByDate(granja, start="01/01/2017", end="31/12/2017")
 calendarPlot(granja17, pollutant = 'Temp_Aire_Avg')#, annotate = 'DV_media')
+
+library(dplyr)
+library(lubridate)
+
+df %>%
+  mutate(date = floor_date(date)) %>%
+  group_by(date) %>%
+  summarize(mean_X1 = mean(Lluvia_Tot))
+
+Using the lubridate package, you can use a similar method to get the average by month, week, or hour. For example, to calculate the average by month:
+
+df %>%
+  mutate(date = month(date)) %>%
+  group_by(date) %>%
+  summarize(mean_X1 = mean(X1))
+
+And by hour:
+
+df %>%
+  mutate(date = hour(date)) %>%
+  group_by(date) %>%
+  summarize(mean_X1 = mean(X1))
 ```
 
