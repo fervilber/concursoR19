@@ -21,7 +21,7 @@ Lo primero es la lectura de los datos que los dan en formato RData.
 granja <- get(load('data/Granja.RData'))
 carrizal<- get(load('data/Carrizal.RData'))
 canizal<- get(load('data/Canizal.RData'))
-granja$estacion<-"granja"
+#granja$estacion<-"granja"
 # junto todo
 todo<-rbind(granja,carrizal,canizal)
 #solo estaciones
@@ -30,15 +30,14 @@ estaciones<-rbind(granja[1,],carrizal[1,],canizal[1,])
 estaciones<-estaciones[,c("estacion","latitud","longitud")]
 
 #length(granja)
-head(carrizal)
-head(granja)
+#head(carrizal)
+#head(granja)
 
-granja$TIMESTAMP[1]
-tail(granja$TIMESTAMP)
+#granja$TIMESTAMP[1]
+#tail(granja$TIMESTAMP)
 
 #ts.plot(granja$Lluvia_Tot)
 #ts.plot(x=granja$TIMESTAMP,y=granja$Rad_acum_Tot)
-
 ```
 
 
@@ -114,29 +113,30 @@ El significado de cada variable es el siguiente:
 #creamos un campo año
 library(lubridate)
 library(dplyr)
-granja<-rename(granja, date = TIMESTAMP, ws = VV_media, wd = DV_media)
-granja$year<-year(granja$date)
+#granja<-rename(granja, date = TIMESTAMP, ws = VV_media, wd = DV_media)
+#granja$year<-year(granja$date)
 
-head(granja)
-str(granja)
-aggregate(Lluvia_Tot ~ year, granja, sum)
+#head(granja)
+#str(granja)
 
-#sobre todo
-todo<-rename(todo, date = TIMESTAMP, ws = VV_media, wd = DV_media,vmax= Vel_Viento_Max)
-todo$year<-year(todo$date)
-llanual<-aggregate(Lluvia_Tot ~ year+estacion, todo, sum)
+todo1<-rename(todo, date = TIMESTAMP, ws = VV_media, wd = DV_media)
+todo1$year<-year(todo1$date)
 
+head(todo)
+str(todo)
+
+lluvia_y<-aggregate(Lluvia_Tot ~ year + estacion, todo1, sum)
+
+# imprimir
 library(ggplot2)
-ggplot(llanual, aes(x=year, fill=estacion)) +
-  geom_bar(mapping = aes(x = cut,  fill=cut))
 
-ggplot(llanual) +
+ggplot(lluvia_y) +
   geom_bar(mapping = aes(x=year,y=Lluvia_Tot, fill=estacion),stat="identity")
 
-ggplot(llanual) +
+ggplot(lluvia_y) +
   geom_bar(mapping = aes(x=year,y=Lluvia_Tot, fill=estacion),stat="identity", position=position_dodge())
 
-ggplot(llanual,aes(x=year,y=Lluvia_Tot, fill=estacion)) +
+ggplot(lluvia_y,aes(x=as.factor(year),y=Lluvia_Tot, fill=estacion)) +
   geom_bar(stat="identity", position=position_dodge())+
 geom_text(aes(label=Lluvia_Tot), vjust=1.6, color="white",
             position = position_dodge(0.9), size=3.5)+
@@ -149,14 +149,17 @@ geom_text(aes(label=Lluvia_Tot), vjust=1.6, color="white",
 Usaremos la librería openair que es muy buena para ver datos meteorilógicos.
 Un primer vistazo con summaryPlot
 ```{r}
-install.packages("openair")
+#install.packages("openair")
 library(openair)
 
 
 # cambio el nombre de la fecha para usar el de por defecto en openair
-names(granja)[1]<-"date"
-max(granja$Lluvia_Tot)
-summaryPlot(select(granja, c(date,Vel_Viento_Max, Lluvia_Tot,Temp_Aire_Avg)))
+#names(todo1)[1]<-"date"
+max(todo1$Lluvia_Tot)
+aux<-todo1[ ,todo1$estacion == "granja"]
+
+summaryPlot(select(filter(todo1,todo1$estacion== "granja"), c(date,Vel_Viento_Max, Lluvia_Tot,Temp_Aire_Avg)))
+#unique(todo1$estacion)
 ```
 
 ### Rosa de los vientos
