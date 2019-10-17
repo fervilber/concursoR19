@@ -1,0 +1,141 @@
+---
+title: "AcuaMed Aguilas"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    self_contained: true
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+#library(readr)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+#library(tidyverse)
+library(plotly)
+library(sf)
+```
+
+```{r}
+# lectura de los datos
+granja <- get(load('data/Granja.RData'))
+carrizal<- get(load('data/Carrizal.RData'))
+canizal<- get(load('data/Canizal.RData'))
+#granja$estacion<-"granja"
+# junto todo
+todo<-rbind(granja,carrizal,canizal)
+#solo estaciones
+estaciones<-rbind(granja[1,],carrizal[1,],canizal[1,])
+
+loc_estaciones<-estaciones[,c("estacion","latitud","longitud")]
+
+
+```
+
+Lateral {.sidebar}
+=====================================
+
+## Barras de seleccion
+
+```{r}
+# shiny inputs defined here
+
+# Rate at which to flag high download traffic
+sliderInput("maxlect", "Maximo num filas leidas:",
+            min = 10, max = 500, value = 50, step = 10
+)
+# Maximum number of raw data rows to keep
+numericInput("maxrows", "valor fijo:", 50)
+
+selectInput('xcol', 'X Variable', names(todo))
+    
+selectInput('ycol', 'Y Variable', names(estaciones),
+                selected=names(estaciones)[[1]])
+    
+```
+
+Datos
+===========================
+
+Row
+-------------------------------------
+
+### Tabla de datos
+
+```{r }
+# no pueden verse todos los datos son muchos, hay que simplificar
+
+#datatable(head(todo), rownames = FALSE,extensions = 'FixedColumns', escape=TRUE, options= list(bPaginate = TRUE, dom = 't',buttons = c('excel')))
+
+#renderTable({
+#  head(todo,input$maxlect)
+#})
+
+library(DT)
+
+renderDT(
+  datatable(head(todo,input$maxlect),colnames = c('Date'=2,'ID' = 3)), options = list(
+    pageLength = 10)
+  )
+```
+
+
+
+
+Mapa
+===========================
+
+### Mapa
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(leaflet)
+# convertimos a numericos
+estaciones$latitud<-as.numeric(estaciones$latitud)
+estaciones$longitud<-as.numeric(estaciones$longitud)
+
+m <- leaflet(estaciones) %>% addTiles() # añade el mapa por defecto de OpenStreetMap
+    # añadimos Una capa de marcas con los datos 
+    # la capa tendrá una popup con el texto marcado
+    
+    
+# otra opcion de dibujo    
+#install.packages("leafpop")
+library(leafpop)
+    new <- c("red", "green","blue")
+icons <- awesomeIcons(
+  icon = 'ios-close',
+  iconColor = 'black',
+  library = 'ion',
+  markerColor = new
+)    
+m1 <-leaflet(estaciones) %>% addProviderTiles("CartoDB.Positron") 
+
+m1 %>% addAwesomeMarkers(lng= ~longitud, lat= ~latitud, icon=icons,
+                    popup= ~estacion,
+                    label= ~estacion,
+                    labelOptions = labelOptions(noHide = T))  
+
+#  addLayersControl(
+#    baseGroups = c("Toner", "Terreno"), # mapas base
+#    overlayGroups = c("Red", "Puntos"), # capas
+#    options = layersControlOptions(collapsed = FALSE)
+#  )
+```
+
+> Mapa 
+
+
+Graficas
+===========================
+
+
+### C.RR de Aguilas
+
+
+### PTO LUMBRERAS
+
+

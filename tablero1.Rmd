@@ -45,11 +45,40 @@ Column {data-width=600}
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 library(leaflet)
+# convertimos a numericos
+estaciones$latitud<-as.numeric(estaciones$latitud)
+estaciones$longitud<-as.numeric(estaciones$longitud)
+
+m <- leaflet(estaciones) %>% addTiles() # añade el mapa por defecto de OpenStreetMap
+    # añadimos Una capa de marcas con los datos 
+    # la capa tendrá una popup con el texto marcado
+    m %>% addMarkers(lng=estaciones$longitud,
+                     lat=estaciones$latitud,
+                     label = ~estacion,
+                     labelOptions = labelOptions(noHide = T))  
+    
+    
+# otra opcion de dibujo    
+#install.packages("leafpop")
+library(leafpop)
+    new <- c("red", "green","blue")
+icons <- awesomeIcons(
+  icon = 'ios-close',
+  iconColor = 'black',
+  library = 'ion',
+  markerColor = new
+)    
+m1 <-leaflet(estaciones) %>% addProviderTiles("CartoDB.Positron") 
+
+m1 %>% addAwesomeMarkers(lng= ~longitud, lat= ~latitud, icon=icons,
+                    popup= ~estacion,
+                    label= ~estacion,
+                    labelOptions = labelOptions(noHide = T))  
 
   addLayersControl(
-    baseGroups = c("Toner", "Terreno"), # mapas base
-    overlayGroups = c("Red", "Puntos"), # capas
-    options = layersControlOptions(collapsed = FALSE)
+#    baseGroups = c("Toner", "Terreno"), # mapas base
+#    overlayGroups = c("Red", "Puntos"), # capas
+#    options = layersControlOptions(collapsed = FALSE)
   )
 ```
 
