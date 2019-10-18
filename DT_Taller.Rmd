@@ -1,0 +1,153 @@
+---
+title: '<font color = "pink">library(</font><font color = "#1E90FF">data.table</font><font color = "pink">)</font>'
+author: "Antonio J. Perán"
+date: "`r format(Sys.time(), '%A, %d %B %Y')`"
+output: 
+  revealjs::revealjs_presentation:
+    theme: moon
+    highlight: default
+    center: true
+    reveal_options:
+      controls: false
+editor_options: 
+  chunk_output_type: console
+---
+
+# ¿Qué es [data.table](https://rdatatable.gitlab.io/data.table/)?
+
+
+## ¿Qué es [data.table](https://rdatatable.gitlab.io/data.table/)?
+
+- Un paquete de R alojado en CRAN desde 2006 cuyos autores son Matt Dowle y Arun Srinivasan, aunque contribuyen a su desarrollo unas 70 personas.
+- Proporciona una mejora considerable al objeto base de R `data.frame` en tres aspectos: funcionalidad, velocidad de procesado y **gestión de memoria**. 
+- No depende de ningún otro paquete de R salvo la instalación base, lo que facilita su mantenimiento y desarrollo.
+- Como muchos otros paquetes, tiene [cheatsheet](https://raw.githubusercontent.com/rstudio/cheatsheets/master/datatable.pdf).
+
+# Leyendo y escribiendo
+
+## fread y fwrite
+
+- `data.table` tiene una implementación propia de las funciones de lectura y escritura de datos que sustituyen a las conocidas `read.*` y `write.*`, estas son `fread` y `fwrite`.
+- Las funciones `fread` y `fwrite` tienen un mejor desempeño que las funciones base de R y ofrecen más funcionalidades.
+
+  - No transforma de manera automática y por defecto las columnas de tipo *character* a factores.
+  - Además de los tipos de inputs soportados por las funciones `read.*` también soporta comandos de la shell que preprocesen el archivo.
+
+## Pasando de data.frame a data.table
+
+- OJO! Un objeto `data.table` no tiene *rownames*.
+- Hay dos formas de pasar de `data.frame`, lista o similares a `data.table`, con las funciones `setDT` y `as.data.table`.
+- `setDT` convierte el objeto dado en `data.table` por referencia y `as.data.table` hace una copia completa (*deep*) del objeto.
+
+## `flights`
+
+- El dataset que vamos utilizar en el taller es el dataset de `flights` que se puede encontrar [aquí]() y también en el repo. Este dataset es un registro de vuelos que partieron desde aeropuertos de Nueva York (JFK, LGA, EWR = Newark Liberty Airport) y que fueron efectuados a lo largo del año 2014.
+
+```{r, eval=FALSE}
+setwd("(tuRuta)/taller_umur_datatable/")
+dt <- fread("flights.csv")
+```
+
+# Primeros pasos
+
+## La filosofía DT[i, j, k]
+
+- Dentro de los corchetes `[]` no se seleccionan únicamente filas y columnas, ocurren muchas más cosas. Las *queries* se organizan, generalmente en:
+
+  - i: ¿En qué filas?
+  - j: ¿Qué?
+  - k: ¿Agrupado por?
+
+```{r, eval=FALSE}
+
+DT<-cars
+DT[i = ¿En qué filas?, j = ¿Qué?, k = ¿Agrupado por?]
+
+DT[c(1:2),,]
+```
+
+## Lo básico
+
+- Adiós al símbolo `$`.
+- El símbolo .() es un alias de list(). Generalmente se usa más el primero.
+
+## Filas i
+
+- Acceder a ellas mediante índices sigue siendo válido.
+- La superfución forder que [cambió](https://cran.r-project.org/doc/manuals/r-release/NEWS.pdf) el order de R base a partir de la versión 3.3.0.
+
+
+## Columnas j
+
+- Cuando se selecciona una única columna el objeto devuelto puede ser otro data.table o un vector.
+- Se pueden extraer columnas mediante su nombre en caracteres especificándolo mediante `..`, o `with = FALSE`.
+- No solo se seleccionan columnas, sino que se pueden hacer todo tipo de cálculos con las columnas del data.table.
+- Para contar tenemos un operador especial, el `.N`.
+
+## Agrupando por k
+
+- Se pueden realizar todo tipo de agregaciones y subseteos de acuerto a la agrupación de variables que se especifiquen en k.
+- Las variables en k se pueden especificar indistintamente mediante .() o caracteres.
+- El argumento k admite también expresiones!!
+
+## El objeto .SD
+
+- El objeto `.SD` es una partición de los datos de acuerdo a una variable de agrupación especificada en k.
+- Asociado a este está el argumento `.SDcols` que permite seleccionar columnas de acuerdo a criterios.
+
+# El operador `:=`
+
+## El operador `:=`
+
+- Hasta ahora solo hemos ejecutado código que agrega el data.table y nos devuelve la agregación. Pero, ¿Cómo podemos modificar variables ya existentes en el data.table o añadir nuevas?
+- Para ello se emplea el operador `:=`, que modifica o agrega nuevas variables por referencia.
+- Con este siguen siendo válidas todas las expresiones vistas en la sección anterior tanto de subseteo como agrupación.
+
+------
+
+- De nuevo, la implementación para realizar este tipo de operaciones cambia la implementación base para obtener mucho mejor rendimiento.
+
+```{r, eval=FALSE}
+DF$c <- 18:13               # (1) -- replace entire column
+# or
+DF$c[DF$ID == "b"] <- 15:13 # (2) -- subassign in column 'c'
+```
+
+## Dos formas de utilizarlo
+
+- La forma LHS := RHS
+
+```{r, eval=FALSE}
+DT[, c("colA", "colB", ...) := list(valA, valB, ...)]
+# si solo es una columna
+DT[, colA := valA]
+```
+
+- La forma funcional
+
+```{r, eval=FALSE}
+DT[, `:=`(colA = valA, # valA se asigna a colA
+          colB = valB, # valB se asigna a colB
+          ...
+)]
+```
+
+# Subseteando muuuuuy rápido
+
+## KEYS VS. ROWNAMES
+
+- Los rownames deben ser únicos, las keys no, y además, pueden estar formadas por distintas columnas.
+- Las `keys` pueden ser primarias o secundarias, estas últimas también llamadas índices.
+- Las `keys` permiten realizar búsquedas binarias en lugar de fila a fila, lo que disminuye considerablemente el tiempo de cómputo.
+
+## Búsqueda binaria
+
+- Supongamos que tenemos un conjunto de números ordenado 1, 5, 10, 19, 22, 23, 30, ordenado y queremos calcular la posición del número 1.
+- La búsqueda binaria consiste en partir el conjunto de datos en mitades sucesivas e ir comprobando en qué mitad está el elemento que buscamos hasta dar con el elemento mismo.
+
+## Definir keys
+
+- Una key primaria implica el reordenamiento del conjunto completo físicamente y se define mediante `setkey()` o `setkeyv()`.
+- Para definir un índice o clave secundaria se puede usar el argumento `on` si es de "usar y tirar" o con `setindex()` si va a reutilizarse.
+- Usar los operadores lógicos `==` y `%in%` define índices que se mantienen.
+

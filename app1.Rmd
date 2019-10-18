@@ -33,8 +33,11 @@ todo<-rbind(granja,carrizal,canizal)
 estaciones<-rbind(granja[1,],carrizal[1,],canizal[1,])
 
 loc_estaciones<-estaciones[,c("estacion","latitud","longitud")]
-
-
+library("data.table")
+dt1<- as.data.table(todo)
+#str(todo)
+#ejemplo de consulta con dt
+#head(dt1[Lluvia_Tot >1 & Vel_Viento_Max >10, .1:5,])
 ```
 
 Lateral {.sidebar}
@@ -182,5 +185,28 @@ rHandsontableOutput("tb1")
 
 
 ### PTO LUMBRERAS
+```{r}
+library(lubridate)
+#library(dplyr)
+
+#dt1<-rename(todo, date = TIMESTAMP, ws = VV_media, wd = DV_media)
+dt1$year<-year(dt1$TIMESTAMP)
+
+#head(dt1)
+#str(todo)
+
+lluvia_y<-aggregate(Lluvia_Tot ~ year + estacion, dt1, sum)
+
+# imprimir
+library(ggplot2)
+
+grf<-ggplot(lluvia_y,aes(x=as.factor(year),y=Lluvia_Tot, fill=estacion)) +
+  geom_bar(stat="identity", position=position_dodge())+
+geom_text(aes(label=Lluvia_Tot), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal()
+ggplotly(grf)
+```
 
 
