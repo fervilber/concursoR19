@@ -1,0 +1,272 @@
+---
+title: "fer_app"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    logo: avatar48.png
+    css: bootstrap-3.4.1-dist/sketchy/bootstrap.css
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+# generar un unico html:
+#    self_contained: true
+#     theme: united
+#     theme: cosmo
+#themes para lex:
+# https://bootswatch.com/
+#    css: bootswatch-3.3.5-4/flatly/bootstrap.css
+#css: bootstrap-3.4.1-dist/sketchy/bootstrap.css
+#css: bootstrap-3.4.1-dist/journal/bootstrap.css
+#     css: bootstrap-3.4.1-dist/journal/bootstrap.css
+
+#::shinytheme("united")
+library(flexdashboard)
+#library(readr)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+#library(tidyverse)
+library(plotly)
+library(sf)
+library(openair)
+```
+
+```{r}
+# lectura de los datos
+granja <- get(load('data/Granja.RData'))
+carrizal<- get(load('data/Carrizal.RData'))
+canizal<- get(load('data/Canizal.RData'))
+#granja$estacion<-"granja"
+
+# junto todo
+todo<-rbind(granja,carrizal,canizal)
+#solo estaciones
+estaciones<-rbind(granja[1,],carrizal[1,],canizal[1,])
+
+loc_estaciones<-estaciones[,c("estacion","latitud","longitud")]
+library("data.table")
+dt1<- as.data.table(todo)
+library(lubridate)
+dt1$year<-year(dt1$TIMESTAMP)
+setnames(dt1, c("TIMESTAMP","VV_media","DV_media"), c("date", "ws","wd"))
+
+#str(dt1)
+#ejemplo de consulta con dt
+#head(dt1[Lluvia_Tot >1 & Vel_Viento_Max >10, .1:5,])
+```
+
+```{js, eval=FALSE}
+$('.navbar-inverse').removeClass('navbar-inverse');
+```
+
+
+Lateral {.sidebar}
+=====================================
+
+### Barras de seleccion
+
+```{r}
+# shiny inputs defined here
+
+# Rate at which to flag high download traffic
+sliderInput("maxlect", "Maximo num filas leidas:",
+            min = 10, max = 500, value = 50, step = 10
+)
+# Maximum number of raw data rows to keep
+numericInput("maxrows", "valor fijo:", 50)
+
+selectInput('variable', 'Variable', names(todo))
+    
+selectInput('station', 'stacion', loc_estaciones[,1],
+                selected=loc_estaciones[1,1])
+
+#selectInput('year', 'stacion', unique(year(todo$TIMESTAMP)),multiple=T)
+
+selectInput('year', 'stacion', unique(dt1$year),multiple=F,selected = "2011")
+
+submitButton(text = "Apply Changes", icon = icon("refresh"))
+
+dateRangeInput("daterange3", "Date range:",
+                 start  = "2001-01-01",
+                 end    = "2010-12-31",
+                 min    = "2001-01-01",
+                 max    = "2012-12-21",
+                 format = "mm/dd/yy",
+                 separator = " - ")
+
+
+checkboxGroupInput("v_est", "Variables to show:",loc_estaciones$estacion,
+                   selected = loc_estaciones$estacion[[1]])
+                   
+#                     c("Cylinders" = "cyl",
+#                       "Transmission" = "am",
+#                       "Gears" = "gear")) 
+```
+
+Datos
+===========================
+
+Row
+-------------------------------------
+
+### Tabla de datos
+
+```{r }
+# no pueden verse todos los datos son muchos, hay que simplificar
+
+#datatable(head(todo), rownames = FALSE,extensions = 'FixedColumns', escape=TRUE, options= list(bPaginate = TRUE, dom = 't',buttons = c('excel')))
+
+#renderTable({
+#  head(todo,input$maxlect)
+#})
+
+library(DT)
+
+renderDT(
+  datatable(head(todo,input$maxlect),colnames = c('Date'=2,'ID' = 3)), options = list(
+    pageLength = 10)
+  )
+```
+
+
+Mapa
+===========================
+
+### Mapa
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(leaflet)
+# convertimos a numericos
+estaciones$latitud<-as.numeric(estaciones$latitud)
+estaciones$longitud<-as.numeric(estaciones$longitud)
+
+m <- leaflet(estaciones) %>% addTiles() # añade el mapa por defecto de OpenStreetMap
+    # añadimos Una capa de marcas con los datos 
+    # la capa tendrá una popup con el texto marcado
+    
+    
+# otra opcion de dibujo    
+#install.packages("leafpop")
+library(leafpop)
+    new <- c("red", "green","blue")
+icons <- awesomeIcons(
+  icon = 'ios-close',
+  iconColor = 'black',
+  library = 'ion',
+  markerColor = new
+)    
+m1 <-leaflet(estaciones) %>% addProviderTiles("CartoDB.Positron") 
+
+m1 %>% addAwesomeMarkers(lng= ~longitud, lat= ~latitud, icon=icons,
+                    popup= ~estacion,
+                    label= ~estacion,
+                    labelOptions = labelOptions(noHide = T))  
+
+#  addLayersControl(
+#    baseGroups = c("Toner", "Terreno"), # mapas base
+#    overlayGroups = c("Red", "Puntos"), # capas
+#    options = layersControlOptions(collapsed = FALSE)
+#  )
+```
+
+> Mapa 
+
+
+Resumen anual
+===========================
+
+
+### Viento
+```{r}
+
+
+
+renderPlot({
+  viento<-dt1[estacion==input$v_est, .(date,ws,wd), ]
+  windRose(viento, key.footer = "knots")
+})
+```
+
+
+
+
+### Lluvia
+```{r}
+numA <- reactive(input$year)
+# imprimir
+
+
+renderPlotly({
+  # agregamos la lluvia por año
+  lluvia_y<-dt1[, .(Lluvia_Tot = sum(Lluvia_Tot)), by = .(year,estacion)]
+  
+#  ggplot(lluvia_y,aes(x=estacion,y=Lluvia_Tot, fill=estacion))+
+#  geom_bar(stat="identity", position=position_dodge())
+  #labs(title = paste("lluvia año:","12"))
+grf<-ggplot(lluvia_y,aes(x=as.factor(year),y=Lluvia_Tot, fill=estacion)) +
+    geom_bar(stat="identity", position=position_dodge())+
+    geom_text(aes(label=round(Lluvia_Tot,digits=2)), vjust=1.6, color=gray(0.8),
+    position = position_dodge(0.9), size=3.5)+
+    scale_fill_brewer(palette="Paired")+
+    #labs(title = "lluvias añuales")+
+    labs(x = "year", y = "Total rain")+
+    theme_minimal()
+  
+ #ggplotly(grf)
+})  
+```
+
+Series temporales
+===========================
+
+### AAA {data-width=50}
+
+```{r}
+#aux<-reactive(as.character(input$v_est))
+
+valueBox(121212, 
+                        caption = "maximal amount of carats",
+                        color = "info",
+                        icon = "fa-gem")
+```
+
+### Datos series
+
+
+```{r}
+#renderText({
+#  print(numA())
+#})
+#v_est
+#install.packages("openair")
+library(openair)
+renderPlot({
+#summaryPlot(dt1[estacion==input$v_est & year == numA(), .(date,ws, Lluvia_Tot,Temp_Aire_Avg)],clip = TRUE)
+  summaryPlot(dt1[estacion==input$station, .(date,ws, Lluvia_Tot,Temp_Aire_Avg,Hum_Rel_Avg,Radiacion_Avg)],clip = TRUE)
+#summaryPlot(dt1[estacion=="granja", .(date,ws, Lluvia_Tot,Temp_Aire_Avg)])
+})
+```
+
+Variables
+===========================
+
+### Variables
+
+El significado de cada variable es el siguiente:
+
+ * **Timestamp:** marca de fecha y hora.
+ * Lluvia total: cantidad de lluvia acumulada en ese intervalo (10 minutos), expresada en milímetros (mm).
+ * *Velocidad máxima del viento:* velocidad máxima del viento en un instante (también llamada racha máxima), en ese intervalo de tiempo. Se expresa en metros/segundo (m/s).
+ * Velocidad media del viento: velocidad media en el intervalo dado (10 minutos). Se expresa en metros/segundos (m/s).
+ * Dirección media del viento: en el intervalo de diez minutos, el valor medio de la dirección del viento, expresado en grados (sentido de las agujas del reloj, desde el norte).
+ * Desviación estándar de la dirección del viento: desviación estándar de la variable anterior, expresada en grados (sentido de las agujas del reloj, desde el norte).
+ * Temperatura del aire: media de la temperatura en el periodo de tiempo medido (10 minutos), expresada en grados centígrados (⁰C).
+ * Promedio de la presión de vapor: promedio de la humedad que hay en el aire en ese periodo de tiempo (10 minutos), pero expresada en términos de presión vapor. Esta es la cantidad de presión con la que contribuye el vapor de agua a la presión atmosférica. Se expresa en kilopascales (kPa).
+ * Promedio del déficit de la presión de vapor: promedio, en ese periodo de tiempo de 10 minutos, de la diferencia entre la presión de vapor saturante y la real, es decir, cuánto nos falta con la presión de vapor que tenemos para llegar a la saturación. En otras palabras, cuán seco está el aire. Así, cuando este valor es muy alto, se separa / aleja mucho de la saturación (hay poco vapor en el aire). Esto se traduce en que la atmósfera está demandando agua, lo cual hace que la fotosíntesis de las plantas se resienta. Estas cierran los estomas para protegerse y no perder agua, y eso va en su contra. Se expresa en kilopascales (kPa).
+ * Promedio de la humedad relativa: esta es otra forma de expresar la humedad, de manera relativa. Es el promedio, en ese periodo de tiempo de 10 minutos, del porcentaje de humedad que tiene el aire, respecto a la saturación. Es una, producto de dividir la humedad que tiene el aire entre la humedad de saturación a esa misma temperatura, y multiplicándolo por cien. Se expresa en porcentaje (%).
+ * Promedio de radiación solar: promedio, en ese periodo de tiempo de 10 minutos, de la cantidad de energía que se recibe del Sol o, en otras palabras, de la energía incidente que llega a la superficie de la Tierra. Se expresa en vatios por metro cuadrado (W/m2).
+ * Radiación acumulada total: acumulado de la radiación solar en el intervalo de 10 minutos. Se expresa en megajulios por metro cuadrado (MJ/m2).
+ *  Latitude&longitude: Latitud y longitud de la estación.

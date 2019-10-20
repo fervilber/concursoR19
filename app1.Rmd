@@ -35,6 +35,8 @@ estaciones<-rbind(granja[1,],carrizal[1,],canizal[1,])
 loc_estaciones<-estaciones[,c("estacion","latitud","longitud")]
 library("data.table")
 dt1<- as.data.table(todo)
+library(lubridate)
+dt1$year<-year(dt1$TIMESTAMP)
 #str(todo)
 #ejemplo de consulta con dt
 #head(dt1[Lluvia_Tot >1 & Vel_Viento_Max >10, .1:5,])
@@ -60,8 +62,9 @@ selectInput('variable', 'Variable', names(todo))
 selectInput('station', 'stacion', loc_estaciones[,1],
                 selected=loc_estaciones[1,1])
 
-selectInput('year', 'stacion', unique(year(todo$TIMESTAMP)),multiple=T)
+#selectInput('year', 'stacion', unique(year(todo$TIMESTAMP)),multiple=T)
 
+selectInput('year', 'stacion', unique(dt1$year),multiple=F,selected = "2011")
 
 submitButton(text = "Apply Changes", icon = icon("refresh"))
 
@@ -186,27 +189,32 @@ rHandsontableOutput("tb1")
 
 ### PTO LUMBRERAS
 ```{r}
-library(lubridate)
 #library(dplyr)
-
 #dt1<-rename(todo, date = TIMESTAMP, ws = VV_media, wd = DV_media)
-dt1$year<-year(dt1$TIMESTAMP)
-
 #head(dt1)
 #str(todo)
 
-lluvia_y<-aggregate(Lluvia_Tot ~ year + estacion, dt1, sum)
+#lluvia_y<-aggregate(Lluvia_Tot ~ year + estacion, dt1, sum)
+#lluvia_y<-dt1[year=="2011", .(Lluvia_Tot = sum(Lluvia_Tot)), by = .(year,estacion)]
 
 # imprimir
 library(ggplot2)
 
-grf<-ggplot(lluvia_y,aes(x=as.factor(year),y=Lluvia_Tot, fill=estacion)) +
+renderPlot({
+  lluvia_y<-dt1[year==input$year, .(Lluvia_Tot = sum(Lluvia_Tot)), by = .(year,estacion)]
+  
+  grf<-ggplot(lluvia_y,aes(x=estacion,y=Lluvia_Tot, fill=estacion))+
   geom_bar(stat="identity", position=position_dodge())+
-geom_text(aes(label=Lluvia_Tot), vjust=1.6, color="white",
-            position = position_dodge(0.9), size=3.5)+
-  scale_fill_brewer(palette="Paired")+
-  theme_minimal()
-ggplotly(grf)
+  labs(title = paste("lluvia año:"))
+#ggplot(lluvia_y,aes(x=as.factor(year),y=Lluvia_Tot, fill=estacion)) +
+#  geom_bar(stat="identity", position=position_dodge())+
+#geom_text(aes(label=Lluvia_Tot), vjust=1.6, color="white",
+#            position = position_dodge(0.9), size=3.5)+
+#  scale_fill_brewer(palette="Paired")+
+#  theme_minimal()
+  
+  ggplotly(grf)
+})  
 ```
 
 
