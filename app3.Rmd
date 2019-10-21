@@ -15,8 +15,8 @@ library(highcharter)
 
 latitude<-c(35.94077, 35.83770, 35.84545, 35.81584, 35.79387, 36.05600)
 longitude<-c(-78.58010, -78.78084, -78.72444, -78.62568, -78.64262,-78.67600)
-amounts1<-c(27, 44, 34, 46, 25, 15)
-amounts2<-c(34, 52, 35, 78, 14, 24)
+amounts1<-c(1, 44, 4, 46, 25, 15)
+amounts2<-c(2, 52, 5, 78, 14, 24)
 ids<-c("a", "b", "c", "d", "e", "f")
 df<-data.frame(ids,amounts1,amounts2,latitude,longitude)
 ```
@@ -25,6 +25,7 @@ Column {data-width=650}
 -----------------------------------------------------------------------
 
 ```{r}
+#el nombre de la instancia será map
 output$map <- renderLeaflet({
 
   leaflet() %>%
@@ -39,14 +40,47 @@ leafletOutput('map')
 ```
 
 ### coordenadas
-
+Reaccion al click con coordenadas
 ```{r}
-numA<-reactive(input$map_marker_click)
+# Detectamos elclick en una marca:
+# numA<-reactive(input$map_marker_click)
+#detectamos el click en un punto del mapa
+numA<-reactive(input$map_click)
 
 renderText({
-  print(paste(numA()$lng,"-", numA()$lat));
+  print(paste(signif(as.numeric(numA()$lng,2)),"-", signif(as.numeric(numA()$lat,2))));
+})
+
+```
+
+### Bounds
+```{r}
+# ver bounds
+n1<-reactive(input$map_bounds)
+
+renderPrint({
+#  print(paste(n1$north," - ",n1$east," - ",n1$south," - ",n1$west ));
+  print(n1())
 })
 ```
+
+### zoom
+```{r}
+# http://rstudio.github.io/leaflet/shiny.html#inputsevents
+
+# input$MAPID_zoom is an integer that indicates the zoom level.
+
+# input$MAPID_center provides the latitude/longtitude of the center of the currently visible map area; the value is a list() that has named elements lat and lng.
+n2<-reactive(input$map_zoom)
+
+renderPrint({
+#  print(paste(n1$north," - ",n1$east," - ",n1$south," - ",n1$west ));
+  print(n2())
+})
+
+```
+
+
 
 
 Column {data-width=350}
